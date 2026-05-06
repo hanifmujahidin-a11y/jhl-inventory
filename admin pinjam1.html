@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JHL Inventory - Admin</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <style>
+    :root {
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --color-primary: #185FA5;
+      --color-background-primary: #FFFFFF;
+      --color-background-secondary: #F9FAFB;
+      --color-text-primary: #111827;
+      --color-text-secondary: #6B7280;
+      --color-border-primary: #D1D5DB;
+      --color-border-secondary: #E5E7EB;
+      --color-border-tertiary: #F3F4F6;
+      --border-radius-md: 8px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); background: var(--color-background-secondary); color: var(--color-text-primary); padding: 2rem 1.5rem; }
+    
+    .container { max-width: 1000px; margin: 0 auto; background: var(--color-background-primary); padding: 2rem; border-radius: 12px; border: 0.5px solid var(--color-border-secondary); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+
+    .header { margin-bottom: 2rem; }
+    .header h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+    .header p { font-size: 14px; color: var(--color-text-secondary); }
+
+    /* ADMIN DASHBOARD UI PERSIS MOCKUP */
+    .table-container { border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); overflow: hidden; margin-top: 1rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+    th { background: var(--color-background-secondary); padding: 12px 16px; font-weight: 600; color: var(--color-text-secondary); border-bottom: 0.5px solid var(--color-border-secondary); text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; }
+    td { padding: 16px; border-bottom: 0.5px solid var(--color-border-tertiary); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+
+    .badge { padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+    .badge-pending { background: #FEF3C7; color: #854F0B; }
+    .badge-approved { background: #DCFCE7; color: #3B6D11; }
+    .badge-returned { background: #E0E7FF; color: #185FA5; }
+    .badge-rejected { background: #FEE2E2; color: #991B1B; }
+
+    .item-tag { display: inline-block; background: var(--color-background-secondary); border: 0.5px solid var(--color-border-secondary); padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 4px; margin-bottom: 4px; color: var(--color-text-primary); }
+
+    /* ACTION BUTTONS UI PERSIS MOCKUP */
+    .action-btn { font-size: 11px; font-weight: 700; text-transform: uppercase; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: all 0.15s; font-family: inherit; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
+    .btn-approve { background: #3B6D11; color: white; }
+    .btn-approve:hover { background: #2D540D; }
+    .btn-remind { background: white; color: #854F0B; border: 0.5px solid #FEF3C7; }
+    .btn-remind:hover { background: #FEF3C7; }
+    .btn-return { background: #185FA5; color: white; }
+    .btn-return:hover { background: #134E8A; }
+    .btn-reject { background: white; color: #DC2626; border: 0.5px solid #FEE2E2; }
+    
+    .btn-disabled { opacity: 0.3; cursor: not-allowed; filter: grayscale(1); }
+
+    #loader { padding: 40px; text-align: center; color: var(--color-text-secondary); font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>Dashboard Admin Inventory</h1>
+    <p>Kelola permohonan peminjaman aset Creative</p>
+  </div>
+
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Peminjam & Unit</th>
+          <th>Barang</th>
+          <th>Periode</th>
+          <th>Status</th>
+          <th style="text-align:center;">Approve</th>
+          <th style="text-align:center;">Remind</th>
+          <th style="text-align:center;">Return</th>
+        </tr>
+      </thead>
+      <tbody id="admin-table-body">
+        <tr>
+          <td colspan="7" id="loader">Menghubungkan ke database...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="margin-top: 1.5rem; padding: 10px 14px; background: var(--color-background-secondary); border-radius: var(--border-radius-md); font-size: 12px; color: var(--color-text-secondary); display: flex; align-items: center; gap: 8px;">
+    <i class="ti ti-info-circle" style="font-size:14px;"></i>
+    <span>Tombol <strong style="color: #3B6D11;">Approve</strong> aktif saat status Menunggu · Tombol <strong style="color: #854F0B;">Remind</strong> untuk kirim pengingat · Tombol <strong style="color: #185FA5;">Return</strong> saat barang kembali</span>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+  import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+  import { getFirestore, collection, doc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+  const firebaseConfig = JSON.parse(__firebase_config);
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const appId = typeof __app_id !== 'undefined' ? __app_id : 'jhl-inv-main';
+
+  const inventoryMap = {
+    'cam': 'Camera', 'lenA': 'Lensa A', 'lenB': 'Lensa B', 
+    'bat': 'Battery', 'mic': 'Mic', 'fla': 'Flash', 
+    'lit': 'Lighting', 'gim': 'Gimbal'
+  };
+
+  const initAuth = async () => {
+    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+      await signInWithCustomToken(auth, __initial_auth_token);
+    } else {
+      await signInAnonymously(auth);
+    }
+  };
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      const q = collection(db, 'artifacts', appId, 'public', 'data', 'loans');
+      onSnapshot(q, (snap) => {
+        const loans = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderAdminTable(loans);
+      });
+    }
+  });
+
+  function renderAdminTable(loans) {
+    const tbody = document.getElementById('admin-table-body');
+    tbody.innerHTML = '';
+
+    if (loans.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:40px; color:#999;">Belum ada data peminjaman.</td></tr>';
+      return;
+    }
+
+    // Sort by newest
+    loans.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    loans.forEach(loan => {
+      const tr = document.createElement('tr');
+      
+      const itemsHtml = loan.items.map(id => `<span class="item-tag">${inventoryMap[id] || id}</span>`).join('');
+      
+      const statusLabel = loan.status === 'Pending' ? 'Menunggu' : 
+                          loan.status === 'Approved' ? 'Dipinjam' : 
+                          loan.status === 'Returned' ? 'Dikembalikan' : 'Ditolak';
+
+      tr.innerHTML = `
+        <td>
+          <div style="font-weight:600;">${loan.name}</div>
+          <div style="font-size:11px; color:var(--color-text-secondary);">${loan.hotel} • ${loan.dept}</div>
+        </td>
+        <td style="max-width:220px;">${itemsHtml}</td>
+        <td>
+          <div style="font-weight:500;">${formatDate(loan.start)} - ${formatDate(loan.end)}</div>
+        </td>
+        <td>
+          <span class="badge badge-${loan.status.toLowerCase()}">
+            <i class="ti ${getStatusIcon(loan.status)}"></i> ${statusLabel}
+          </span>
+        </td>
+        <td style="text-align:center;">
+          <button onclick="updateStatus('${loan.id}', 'Approved')" class="action-btn btn-approve ${loan.status !== 'Pending' ? 'btn-disabled' : ''}" ${loan.status !== 'Pending' ? 'disabled' : ''}>
+            Approve
+          </button>
+        </td>
+        <td style="text-align:center;">
+          <button onclick="alert('Email pengingat dikirim ke ${loan.email}')" class="action-btn btn-remind ${loan.status !== 'Approved' ? 'btn-disabled' : ''}" ${loan.status !== 'Approved' ? 'disabled' : ''}>
+            <i class="ti ti-bell"></i> Remind
+          </button>
+        </td>
+        <td style="text-align:center;">
+          <button onclick="updateStatus('${loan.id}', 'Returned')" class="action-btn btn-return ${loan.status !== 'Approved' ? 'btn-disabled' : ''}" ${loan.status !== 'Approved' ? 'disabled' : ''}>
+            Return
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  window.updateStatus = async (id, status) => {
+    try {
+      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'loans', id);
+      await updateDoc(docRef, { status: status });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  function getStatusIcon(s) {
+    if (s === 'Pending') return 'ti-clock-play';
+    if (s === 'Approved') return 'ti-circle-check';
+    if (s === 'Returned') return 'ti-package-import';
+    return 'ti-x';
+  }
+
+  function formatDate(d) {
+    if (!d) return '-';
+    const date = new Date(d);
+    return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+  }
+
+  window.onload = initAuth;
+</script>
+
+</body>
+</html>
