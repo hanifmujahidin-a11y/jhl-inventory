@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JHL Inventory - Peminjaman</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <style>
+    :root {
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --color-primary: #185FA5;
+      --color-success: #3B6D11;
+      --color-border: #E5E7EB;
+      --color-background-primary: #FFFFFF;
+      --color-background-secondary: #F9FAFB;
+      --color-text-primary: #111827;
+      --color-text-secondary: #6B7280;
+      --border-radius-md: 8px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); background: var(--color-background-secondary); color: var(--color-text-primary); padding: 2rem 1rem; }
+    
+    .container { max-width: 650px; margin: 0 auto; background: var(--color-background-primary); padding: 2rem; border-radius: 12px; border: 0.5px solid var(--color-border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    
+    .header { margin-bottom: 2rem; }
+    .header h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+    .header p { font-size: 14px; color: var(--color-text-secondary); }
+
+    .stepper { display: flex; align-items: center; gap: 0; margin-bottom: 2rem; }
+    .step { display: flex; align-items: center; gap: 8px; flex: 1; }
+    .step-circle { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; border: 1.5px solid var(--color-border); color: var(--color-text-secondary); background: white; transition: all 0.2s; }
+    .step-line { flex: 1; height: 1.5px; background: var(--color-border); margin: 0 8px; }
+    .step.active .step-circle { border-color: var(--color-primary); color: var(--color-primary); }
+    .step.completed .step-circle { background: var(--color-primary); border-color: var(--color-primary); color: white; }
+    .step.completed .step-line { background: var(--color-primary); }
+    .step-label { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); }
+    .step.active .step-label { color: var(--color-primary); }
+
+    .form-section { display: none; }
+    .form-section.active { display: block; animation: fadeIn 0.2s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    .form-group { margin-bottom: 1.25rem; }
+    .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--color-text-primary); }
+    .form-control { width: 100%; padding: 10px 12px; border: 1.5px solid var(--color-border); border-radius: 6px; font-size: 14px; transition: border-color 0.15s; outline: none; font-family: inherit; }
+    .form-control:focus { border-color: var(--color-primary); }
+
+    .inventory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-top: 10px; }
+    .item-card { border: 1.5px solid var(--color-border); border-radius: 8px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.15s; position: relative; background: white; }
+    .item-card:hover:not(.unavailable) { border-color: #9CA3AF; }
+    .item-card.selected { border-color: var(--color-primary); background: #F0F7FF; box-shadow: 0 0 0 1px var(--color-primary); }
+    .item-card.unavailable { opacity: 0.5; cursor: not-allowed; background: var(--color-background-secondary); border-style: dashed; }
+    .item-card i { font-size: 24px; color: var(--color-text-secondary); margin-bottom: 8px; display: block; }
+    .item-card.selected i { color: var(--color-primary); }
+    .item-card span { font-size: 12px; font-weight: 500; display: block; margin-bottom: 4px; }
+    .status-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .status-available { color: #059669; }
+    .status-busy { color: #DC2626; }
+    .available-info { font-size: 9px; color: var(--color-text-secondary); margin-top: 4px; min-height: 12px; }
+
+    .btn-group { display: flex; gap: 10px; margin-top: 2rem; border-top: 1.5px solid var(--color-border); padding-top: 1.5rem; }
+    .btn { padding: 10px 18px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; font-family: inherit; }
+    .btn-primary { background: var(--color-primary); color: white; flex: 1; }
+    .btn-primary:hover { background: #134E8A; }
+    .btn-secondary { background: white; border: 1.5px solid var(--color-border); color: var(--color-text-secondary); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .alert-error { background: #FEF2F2; padding: 0.85rem; border-radius: 6px; font-size: 12px; color: #DC2626; margin-top: 1rem; border: 1px solid #FEE2E2; display: none; align-items: flex-start; gap: 8px; }
+
+    .success-container { text-align: center; padding: 2rem 0; }
+    .success-icon { width: 64px; height: 64px; background: #ECFDF5; color: #10B981; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 1.5rem; }
+
+    .field-error { font-size: 11px; color: #DC2626; margin-top: 4px; display: none; }
+
+    @media (max-width: 480px) {
+      .stepper { overflow-x: auto; padding-bottom: 10px; }
+      .step-label { display: none; }
+      .inventory-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>JHL Creative Inventory</h1>
+    <p>Sistem Peminjaman Internal Aset Creative</p>
+  </div>
+
+  <div class="stepper">
+    <div class="step active" id="st-1">
+      <div class="step-circle">1</div>
+      <div class="step-label">Identitas</div>
+      <div class="step-line"></div>
+    </div>
+    <div class="step" id="st-2">
+      <div class="step-circle">2</div>
+      <div class="step-label">Pilih Barang & Jadwal</div>
+      <div class="step-line"></div>
+    </div>
+    <div class="step" id="st-3">
+      <div class="step-circle">3</div>
+      <div class="step-label">Selesai</div>
+    </div>
+  </div>
+
+  <!-- Identitas Section -->
+  <div id="section-1" class="form-section active">
+    <div class="form-group">
+      <label>Pilih Unit Hotel</label>
+      <select id="field-hotel" class="form-control">
+        <option value="">-- Pilih Hotel --</option>
+        <option>Episode Gading Serpong</option>
+        <option>JHL Solitaire Gading Serpong</option>
+        <option>Herloom Hotel &amp; Residence</option>
+        <option>JSI Resort Megamendung</option>
+        <option>Episode Kuta Bali</option>
+        <option>Noema Resort Pererenan</option>
+        <option>Arjuna Solitaire Hotel</option>
+      </select>
+      <div class="field-error" id="err-hotel">Pilih hotel terlebih dahulu.</div>
+    </div>
+    <div class="form-group">
+      <label>Nama Lengkap</label>
+      <input type="text" id="field-name" class="form-control" placeholder="Masukkan nama sesuai ID Card">
+      <div class="field-error" id="err-name">Nama wajib diisi.</div>
+    </div>
+    <div class="form-group">
+      <label>Department</label>
+      <input type="text" id="field-dept" class="form-control" placeholder="Contoh: Sales & Marketing">
+      <div class="field-error" id="err-dept">Department wajib diisi.</div>
+    </div>
+    <div class="form-group">
+      <label>Jabatan / Position</label>
+      <input type="text" id="field-position" class="form-control" placeholder="Contoh: Marketing Manager">
+      <div class="field-error" id="err-position">Jabatan wajib diisi.</div>
+    </div>
+    <div class="form-group">
+      <label>Tujuan Penggunaan</label>
+      <input type="text" id="field-purpose" class="form-control" placeholder="Contoh: Foto produk untuk konten Instagram">
+      <div class="field-error" id="err-purpose">Tujuan penggunaan wajib diisi.</div>
+    </div>
+    <div class="form-group">
+      <label>Email Corporate</label>
+      <input type="email" id="field-email" class="form-control" placeholder="nama.anda@jhlcollections.com">
+      <div class="field-error" id="err-email">Gunakan email dengan domain @jhlcollections.com</div>
+    </div>
+    <div class="btn-group">
+      <button onclick="goToStep2()" class="btn btn-primary">Lanjut Pilih Barang <i class="ti ti-chevron-right"></i></button>
+    </div>
+  </div>
+
+  <!-- Inventory & Date Section -->
+  <div id="section-2" class="form-section">
+    <div style="background: #F3F4F6; padding: 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid var(--color-border);">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 11px; text-transform: uppercase; color: var(--color-text-secondary);">Mulai Pinjam</label>
+          <input type="date" id="field-start" class="form-control" onchange="validateAvailability()">
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 11px; text-transform: uppercase; color: var(--color-text-secondary);">Rencana Kembali</label>
+          <input type="date" id="field-end" class="form-control" onchange="validateAvailability()">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-bottom: 1rem;">
+      <label>Catatan Tambahan (opsional)</label>
+      <input type="text" id="field-notes" class="form-control" placeholder="Informasi tambahan jika ada">
+    </div>
+
+    <label style="font-size:13px; font-weight:600; margin-bottom:10px; display:block;">Pilih Aset yang Tersedia</label>
+    <div class="inventory-grid" id="inv-container"></div>
+
+    <div id="alert-conflict" class="alert-error">
+      <i class="ti ti-alert-triangle" style="font-size: 16px;"></i>
+      <span id="alert-conflict-msg">Beberapa barang terpilih baru saja dipesan oleh orang lain pada tanggal tersebut. Kami telah memperbarui pilihan Anda secara otomatis.</span>
+    </div>
+
+    <div class="btn-group">
+      <button onclick="changeSection(1)" class="btn btn-secondary">Kembali</button>
+      <button id="btn-submit" onclick="handleFinalSubmit()" class="btn btn-primary">🔔 Kirim Permohonan</button>
+    </div>
+  </div>
+
+  <!-- Success Section -->
+  <div id="section-3" class="form-section">
+    <div class="success-container">
+      <div class="success-icon"><i class="ti ti-check"></i></div>
+      <h2 style="font-size: 22px; margin-bottom: 8px;">Permintaan Terkirim!</h2>
+      <p style="color: var(--color-text-secondary); font-size: 14px; margin-bottom: 2rem;">Permohonan Anda sedang ditinjau oleh tim Creative. Notifikasi akan dikirim ke email Anda setelah disetujui.</p>
+      <button onclick="location.reload()" class="btn btn-secondary" style="width: 100%;">Buat Permintaan Baru</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  // ============================================================
+  // GANTI BAGIAN INI DENGAN CONFIG FIREBASE ANDA
+  // Ambil dari Firebase Console > Project Settings > Your apps
+  // ============================================================
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+  import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "GANTI_DENGAN_API_KEY_ANDA",
+    authDomain: "GANTI_DENGAN_AUTH_DOMAIN_ANDA",
+    projectId: "GANTI_DENGAN_PROJECT_ID_ANDA",
+    storageBucket: "GANTI_DENGAN_STORAGE_BUCKET_ANDA",
+    messagingSenderId: "GANTI_DENGAN_MESSAGING_SENDER_ID_ANDA",
+    appId: "GANTI_DENGAN_APP_ID_ANDA"
+  };
+  // ============================================================
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // Koleksi Firestore — SAMA antara index.html dan admin.html
+  const LOANS_COLLECTION = "loans";
+
+  const inventoryData = [
+    { id: 'cam',  name: 'Camera',       icon: 'ti-camera' },
+    { id: 'lenA', name: 'Lensa A',      icon: 'ti-zoom-in' },
+    { id: 'lenB', name: 'Lensa B',      icon: 'ti-zoom-check' },
+    { id: 'bat',  name: 'Battery Extra',icon: 'ti-battery-charging' },
+    { id: 'mic',  name: 'Mic',          icon: 'ti-microphone' },
+    { id: 'fla',  name: 'Flash',        icon: 'ti-bolt' },
+    { id: 'lit',  name: 'Lighting',     icon: 'ti-bulb' },
+    { id: 'gim',  name: 'Gimbal',       icon: 'ti-brand-youtube' }
+  ];
+
+  let selectedItems = [];
+  let existingLoans = [];
+  let currentUser = null;
+
+  // ---- STEPPER ----
+  window.changeSection = (s) => {
+    document.querySelectorAll('.form-section').forEach(sec => sec.classList.remove('active'));
+    document.getElementById(`section-${s}`).classList.add('active');
+    for (let i = 1; i <= 3; i++) {
+      const el = document.getElementById(`st-${i}`);
+      if (!el) continue;
+      el.className = i < s ? "step completed" : i === s ? "step active" : "step";
+    }
+  };
+
+  // ---- VALIDASI STEP 1 ----
+  window.goToStep2 = () => {
+    const hotel    = document.getElementById('field-hotel').value;
+    const name     = document.getElementById('field-name').value.trim();
+    const dept     = document.getElementById('field-dept').value.trim();
+    const position = document.getElementById('field-position').value.trim();
+    const purpose  = document.getElementById('field-purpose').value.trim();
+    const email    = document.getElementById('field-email').value.trim();
+
+    let valid = true;
+    const show = (id, show) => { document.getElementById(id).style.display = show ? 'block' : 'none'; };
+
+    show('err-hotel',    !hotel);
+    show('err-name',     !name);
+    show('err-dept',     !dept);
+    show('err-position', !position);
+    show('err-purpose',  !purpose);
+
+    if (!hotel) valid = false;
+    if (!name) valid = false;
+    if (!dept) valid = false;
+    if (!position) valid = false;
+    if (!purpose) valid = false;
+
+    if (!email || !email.endsWith('@jhlcollections.com')) {
+      show('err-email', true);
+      valid = false;
+    } else {
+      show('err-email', false);
+    }
+
+    if (valid) changeSection(2);
+  };
+
+  // ---- TOGGLE ITEM ----
+  window.toggleItem = (id) => {
+    const el = document.getElementById(`card-${id}`);
+    if (!el || el.classList.contains('unavailable')) return;
+    if (selectedItems.includes(id)) {
+      selectedItems = selectedItems.filter(i => i !== id);
+      el.classList.remove('selected');
+    } else {
+      selectedItems.push(id);
+      el.classList.add('selected');
+    }
+    document.getElementById('alert-conflict').style.display = 'none';
+  };
+
+  // ---- CEK KETERSEDIAAN REAL-TIME ----
+  window.validateAvailability = () => {
+    const start = document.getElementById('field-start').value;
+    const end   = document.getElementById('field-end').value;
+    const alertBox = document.getElementById('alert-conflict');
+    let hasConflict = false;
+
+    inventoryData.forEach(item => {
+      const card = document.getElementById(`card-${item.id}`);
+      if (!card) return;
+      card.classList.remove('unavailable');
+      card.querySelector('.status-tag').innerText = "Tersedia";
+      card.querySelector('.status-tag').className = "status-tag status-available";
+      card.querySelector('.available-info').innerText = "Siap dipinjam";
+    });
+
+    if (!start || !end) return;
+
+    existingLoans.forEach(loan => {
+      const overlap = (start <= loan.end) && (end >= loan.start);
+      const active  = !['Returned', 'Rejected', 'Canceled'].includes(loan.status);
+      if (overlap && active && loan.items) {
+        loan.items.forEach(itemId => {
+          const card = document.getElementById(`card-${itemId}`);
+          if (card) {
+            card.classList.add('unavailable');
+            card.querySelector('.status-tag').innerText = "Dipinjam";
+            card.querySelector('.status-tag').className = "status-tag status-busy";
+            card.querySelector('.available-info').innerText = "Hingga " + loan.end;
+            if (selectedItems.includes(itemId)) {
+              selectedItems = selectedItems.filter(i => i !== itemId);
+              card.classList.remove('selected');
+              hasConflict = true;
+            }
+          }
+        });
+      }
+    });
+
+    if (hasConflict) alertBox.style.display = 'flex';
+    return hasConflict;
+  };
+
+  // ---- SUBMIT ----
+  window.handleFinalSubmit = async () => {
+    const hadConflict = validateAvailability();
+    if (hadConflict) return;
+
+    if (selectedItems.length === 0) { alert("Harap pilih minimal satu barang."); return; }
+
+    const start = document.getElementById('field-start').value;
+    const end   = document.getElementById('field-end').value;
+    if (!start || !end) { alert("Tanggal pengambilan dan pengembalian wajib diisi."); return; }
+    if (start > end) { alert("Tanggal kembali harus setelah tanggal mulai."); return; }
+
+    const btn = document.getElementById('btn-submit');
+    btn.innerText = "Memproses...";
+    btn.disabled = true;
+
+    try {
+      await addDoc(collection(db, LOANS_COLLECTION), {
+        hotel:     document.getElementById('field-hotel').value,
+        name:      document.getElementById('field-name').value.trim(),
+        dept:      document.getElementById('field-dept').value.trim(),
+        position:  document.getElementById('field-position').value.trim(),
+        purpose:   document.getElementById('field-purpose').value.trim(),
+        email:     document.getElementById('field-email').value.trim(),
+        notes:     document.getElementById('field-notes').value.trim(),
+        start,
+        end,
+        items:     selectedItems,
+        status:    'Pending',
+        createdAt: serverTimestamp(),
+        userId:    currentUser ? currentUser.uid : 'anonymous'
+      });
+      changeSection(3);
+    } catch (e) {
+      console.error(e);
+      alert("Terjadi kesalahan saat menyimpan data. Coba lagi.");
+      btn.innerText = "🔔 Kirim Permohonan";
+      btn.disabled = false;
+    }
+  };
+
+  // ---- INISIALISASI KARTU INVENTORY ----
+  function initInventory() {
+    const container = document.getElementById('inv-container');
+    container.innerHTML = '';
+    inventoryData.forEach(item => {
+      const card = document.createElement('div');
+      card.id = `card-${item.id}`;
+      card.className = "item-card";
+      card.onclick = () => toggleItem(item.id);
+      card.innerHTML = `
+        <i class="ti ${item.icon}"></i>
+        <span>${item.name}</span>
+        <div class="status-tag status-available">Tersedia</div>
+        <div class="available-info">Siap dipinjam</div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  // ---- AUTH & REALTIME LISTENER ----
+  onAuthStateChanged(auth, (user) => {
+    currentUser = user;
+    if (user) {
+      // Dengarkan perubahan data loan secara realtime
+      onSnapshot(collection(db, LOANS_COLLECTION), (snap) => {
+        existingLoans = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        validateAvailability();
+      }, (err) => console.error("Firestore error:", err));
+    }
+  });
+
+  window.onload = () => {
+    initInventory();
+    // Login anonymous — peminjam tidak perlu akun
+    signInAnonymously(auth).catch(e => console.error("Auth error:", e));
+  };
+</script>
+</body>
+</html>
